@@ -73,3 +73,10 @@ VALUES (@data_source_type_id, 'address', '地址', 'Address', NULL, 'TEXT', NULL
 
 -- Change the default python version to python3
 UPDATE linkis_ps_configuration_config_key SET default_value = 'python3' WHERE `key` = 'spark.python.version';
+
+-- Add sslFingerprint field for Elasticsearch datasource
+select @data_source_type_id := id from `linkis_ps_dm_datasource_type` where `name` = 'elasticsearch';
+INSERT INTO `linkis_ps_dm_datasource_type_key`
+    (`data_source_type_id`, `key`, `name`, `name_en`, `default_value`, `value_type`, `scope`, `require`, `description`, `description_en`, `value_regex`, `ref_id`, `ref_value`, `data_source`, `update_time`, `create_time`)
+VALUES (@data_source_type_id, 'sslFingerprint', 'SSL指纹(SSL Fingerprint)', 'SSL Fingerprint', NULL, 'TEXT', NULL, 0, 'SSL指纹认证,用于HTTPS连接(SSL Fingerprint for HTTPS connection)', 'SSL Fingerprint for HTTPS connection', '^[a-fA-F0-9]{64}$', NULL, '', NULL, now(), now())
+ON DUPLICATE KEY UPDATE `name` = 'SSL指纹(SSL Fingerprint)', `name_en` = 'SSL Fingerprint';

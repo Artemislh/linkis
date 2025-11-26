@@ -17,25 +17,32 @@
 
 package org.apache.linkis.metadata.query.service;
 
-import org.apache.linkis.datasourcemanager.common.util.json.Json;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+
+import javax.net.ssl.SSLContext;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.Response;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.cat.IndicesResponse;
+import co.elastic.clients.elasticsearch.core.InfoResponse;
+import co.elastic.clients.elasticsearch.indices.GetMappingRequest;
+import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
+import co.elastic.clients.elasticsearch.indices.get_mapping.IndexMappingRecord;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
@@ -48,99 +55,133 @@ public class ElasticConnection implements Closeable {
   private static final String FIELD_PROPS = "properties";
 
   private RestClient restClient;
+  private ElasticsearchClient client;
 
-  public ElasticConnection(String[] endPoints, String username, String password)
+  public ElasticConnection(String[] endPoints, String username, String password, String fingerprint)
       throws IOException {
     HttpHost[] httpHosts = new HttpHost[endPoints.length];
     for (int i = 0; i < endPoints.length; i++) {
       httpHosts[i] = HttpHost.create(endPoints[i]);
     }
     RestClientBuilder restClientBuilder = RestClient.builder(httpHosts);
-    CredentialsProvider credentialsProvider = null;
-    if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
-      credentialsProvider = new BasicCredentialsProvider();
-      credentialsProvider.setCredentials(
-          AuthScope.ANY, new UsernamePasswordCredentials(username, password));
-    }
-    // set only one thread
-    CredentialsProvider finalCredentialsProvider = credentialsProvider;
+
     restClientBuilder.setHttpClientConfigCallback(
         httpClientBuilder -> {
-          if (null != finalCredentialsProvider) {
-            httpClientBuilder.setDefaultCredentialsProvider(finalCredentialsProvider);
-          }
-          return httpClientBuilder.setDefaultIOReactorConfig(
-              IOReactorConfig.custom().setIoThreadCount(1).build());
+          configureAuthentication(httpClientBuilder, username, password);
+          configureSsl(httpClientBuilder, fingerprint);
+          return httpClientBuilder;
         });
+
     this.restClient = restClientBuilder.build();
+
+    ElasticsearchTransport transport =
+        new RestClientTransport(restClient, new JacksonJsonpMapper());
+    this.client = new ElasticsearchClient(transport);
+
     // Try to test connection
     ping();
   }
 
+  private void configureAuthentication(
+      HttpAsyncClientBuilder httpClientBuilder, String username, String password) {
+    if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+      CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+      credentialsProvider.setCredentials(
+          AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+      httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+    }
+  }
+
+  private void configureSsl(HttpAsyncClientBuilder httpClientBuilder, String fingerprint) {
+    if (StringUtils.isNotBlank(fingerprint) && !"null".equals(fingerprint)) {
+      try {
+        SSLContext sslContext =
+            co.elastic.clients.transport.TransportUtils.sslContextFromCaFingerprint(fingerprint);
+        httpClientBuilder.setSSLContext(sslContext);
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to configure SSL with fingerprint: " + fingerprint, e);
+      }
+    }
+  }
+
   public List<String> getAllIndices() throws Exception {
     List<String> indices = new ArrayList<>();
-    Request request = new Request("GET", "_cat/indices");
-    request.addParameter("format", "JSON");
-    Response response = restClient.performRequest(request);
-    List<Map<String, Object>> list = Json.fromJson(response.getEntity().getContent(), Map.class);
-    list.forEach(
-        v -> {
-          String index = String.valueOf(v.getOrDefault(DEFAULT_INDEX_NAME, ""));
-          if (StringUtils.isNotBlank(index) && !index.startsWith(".")) {
-            indices.add(index);
-          }
-        });
+    try {
+      IndicesResponse response = client.cat().indices();
+      response
+          .valueBody()
+          .forEach(
+              record -> {
+                String index = record.index();
+                if (StringUtils.isNotBlank(index) && !index.startsWith(".")) {
+                  indices.add(index);
+                }
+              });
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to get indices", e);
+    }
     return indices;
   }
 
   public List<String> getTypes(String index) throws Exception {
     List<String> types = new ArrayList<>();
-    Request request = new Request("GET", index + "/_mappings");
-    Response response = restClient.performRequest(request);
-    Map<String, Map<String, Object>> result =
-        Json.fromJson(response.getEntity().getContent(), Map.class);
-    Map<String, Object> indexMap = result.get(index);
-    Object props = indexMap.get(DEFAULT_MAPPING_NAME);
-    if (props instanceof Map) {
-      Set keySet = ((Map) props).keySet();
-      for (Object v : keySet) {
-        types.add(String.valueOf(v));
+    try {
+      GetMappingResponse response = client.indices().getMapping(builder -> builder.index(index));
+      Map<String, IndexMappingRecord> mappings = response.result();
+      if (mappings.containsKey(index)) {
+        IndexMappingRecord record = mappings.get(index);
+        if (record.mappings().properties() != null) {
+          types.add("_doc");
+        }
       }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to get types for index: " + index, e);
     }
     return types;
   }
 
+  @SuppressWarnings("unchecked")
   public Map<Object, Object> getProps(String index, String type) throws Exception {
-    Request request = new Request("GET", index + "/_mappings/" + type);
-    Response response = restClient.performRequest(request);
-    Map<String, Map<String, Object>> result =
-        Json.fromJson(response.getEntity().getContent(), Map.class);
-    Map mappings = (Map) result.get(index).get("mappings");
-    Map propsMap = mappings;
-    if (mappings.containsKey(type)) {
-      Object typeMap = mappings.get(type);
-      if (typeMap instanceof Map) {
-        propsMap = (Map) typeMap;
+    try {
+      GetMappingRequest request = GetMappingRequest.of(builder -> builder.index(index));
+      GetMappingResponse response = client.indices().getMapping(request);
+
+      Map<String, IndexMappingRecord> mappings = response.result();
+      if (mappings.containsKey(index)) {
+        IndexMappingRecord record = mappings.get(index);
+        if (record.mappings().properties() != null) {
+          return record.mappings().properties().entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey,
+                      entry -> {
+                        Map<String, Object> propMap = new java.util.HashMap<>();
+                        propMap.put(DEFAULT_TYPE_NAME, entry.getValue()._kind().jsonValue());
+                        return propMap;
+                      }));
+        }
       }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to get properties for index: " + index, e);
     }
-    Object props = propsMap.get(FIELD_PROPS);
-    if (props instanceof Map) {
-      return (Map) props;
-    }
-    return null;
+    return new java.util.HashMap<>();
   }
 
   public void ping() throws IOException {
-    Response response = restClient.performRequest(new Request("GET", "/"));
-    int code = response.getStatusLine().getStatusCode();
-    int successCode = 200;
-    if (code != successCode) {
-      throw new RuntimeException("Ping to ElasticSearch ERROR, response code: " + code);
+    try {
+      InfoResponse response = client.info();
+      if (response.version() == null) {
+        throw new RuntimeException("Ping to ElasticSearch ERROR: Invalid response");
+      }
+    } catch (Exception e) {
+      throw new IOException("Failed to ping Elasticsearch", e);
     }
   }
 
   @Override
   public void close() throws IOException {
-    this.restClient.close();
+    if (this.restClient != null) {
+      this.restClient.close();
+    }
   }
 }

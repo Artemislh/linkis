@@ -111,7 +111,7 @@ public class SqlConnection extends AbstractSqlConnection {
     ResultSet rs = null;
     ResultSetMetaData meta;
     try {
-      List<String> primaryKeys = getPrimaryKeys(table);
+      List<String> primaryKeys = getPrimaryKeys(schemaname, table);
       Map<String, String> columnCommentMap = getColumnComment(schemaname, table);
       ps = conn.prepareStatement(columnSql);
       rs = ps.executeQuery();

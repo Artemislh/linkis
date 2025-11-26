@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:artifacts.elastic.co)",
+      "Bash(npm install)",
+      "Bash(dir node_modules)",
+      "Bash(findstr:*)",
+      "Bash(test:*)",
+      "Bash(npm run build:*)",
+      "Bash(nvm list:*)",
+      "Bash(nvm use:*)",
+      "Bash(rd /s /q node_modules)",
+      "Bash(del /f package-lock.json)",
+      "Bash(npm rebuild:*)",
+      "Bash(\"C:\\Users\\Administrator\\AppData\\Local\\nvm\\v20.19.5\\node.exe\" --version)",
+      "Bash(\"C:\\Users\\Administrator\\AppData\\Local\\nvm\\v20.19.5\\node.exe\" \"C:\\Users\\Administrator\\AppData\\Local\\nvm\\v20.19.5\\node_modules\\npm\\bin\\npm-cli.js\" run build)",
+      "Bash(\"C:\\Users\\Administrator\\AppData\\Local\\nvm\\v20.19.5\\node.exe\" \"C:\\Users\\Administrator\\AppData\\Local\\nvm\\v20.19.5\\node_modules\\npm\\bin\\npm-cli.js\" list html-webpack-plugin)",
+      "Bash(dir /s /b \"F:\\DSSLinkis\\linkis\\lib\")",
+      "Bash(dir:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

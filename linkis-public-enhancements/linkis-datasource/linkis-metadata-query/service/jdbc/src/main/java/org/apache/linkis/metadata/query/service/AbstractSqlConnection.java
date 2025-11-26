@@ -69,7 +69,7 @@ public abstract class AbstractSqlConnection implements Closeable {
     ResultSet rs = null;
     ResultSetMetaData meta;
     try {
-      List<String> primaryKeys = getPrimaryKeys(table);
+      List<String> primaryKeys = getPrimaryKeys(schemaname, table);
       ps = conn.prepareStatement(columnSql);
       rs = ps.executeQuery();
       meta = rs.getMetaData();
@@ -95,16 +95,19 @@ public abstract class AbstractSqlConnection implements Closeable {
   /**
    * Get primary keys // * @param connection connection
    *
+   * @param database database name (catalog for MySQL, schema for other databases)
    * @param table table name
-   * @return
+   * @return list of primary key column names
    * @throws SQLException
    */
-  public List<String> getPrimaryKeys(String table) throws SQLException {
+  public List<String> getPrimaryKeys(String database, String table) throws SQLException {
     ResultSet rs = null;
     List<String> primaryKeys = new ArrayList<>();
     try {
       DatabaseMetaData dbMeta = conn.getMetaData();
-      rs = dbMeta.getPrimaryKeys(null, null, table);
+      // For MySQL, the first parameter is catalog (database name)
+      // For other databases like Oracle, PostgreSQL, it might be schema
+      rs = dbMeta.getPrimaryKeys(database, null, table);
       while (rs.next()) {
         primaryKeys.add(rs.getString("column_name"));
       }

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/** @author Administrator */
 public class EsMetaService extends AbstractDbMetaService<ElasticConnection> {
   @Override
   public MetadataConnection<ElasticConnection> getConnection(
@@ -39,13 +40,14 @@ public class EsMetaService extends AbstractDbMetaService<ElasticConnection> {
     } else {
       endPoints = ((List<String>) urls).toArray(endPoints);
     }
-    ElasticConnection conn =
-        new ElasticConnection(
-            endPoints,
-            String.valueOf(
-                params.getOrDefault(ElasticParamsMapper.PARAM_ES_USERNAME.getValue(), "")),
-            String.valueOf(
-                params.getOrDefault(ElasticParamsMapper.PARAM_ES_PASSWORD.getValue(), "")));
+    String username =
+        String.valueOf(params.getOrDefault(ElasticParamsMapper.PARAM_ES_USERNAME.getValue(), ""));
+    String password =
+        String.valueOf(params.getOrDefault(ElasticParamsMapper.PARAM_ES_PASSWORD.getValue(), ""));
+    Object fingerprintObj = params.get(ElasticParamsMapper.PARAM_ES_FINGERPRINT.getValue());
+    String fingerprint = (fingerprintObj != null) ? String.valueOf(fingerprintObj) : null;
+
+    ElasticConnection conn = new ElasticConnection(endPoints, username, password, fingerprint);
     return new MetadataConnection<>(conn, false);
   }
 

@@ -540,7 +540,8 @@ INSERT INTO "linkis_ps_dm_datasource_type_key"
     ("data_source_type_id", "key", "name", "name_en", "default_value", "value_type", "scope", "require", "description", "description_en", "value_regex", "ref_id", "ref_value", "data_source", "update_time", "create_time")
 VALUES ((select id from "linkis_ps_dm_datasource_type" where "name" = 'elasticsearch'), 'username', '用户名(Username)' , 'Username', NULL, 'TEXT', NULL, '1', '用户名(Username)', 'Username', '^[0-9A-Za-z_-]+$', NULL, '', NULL, now(), now()),
        ((select id from "linkis_ps_dm_datasource_type" where "name" = 'elasticsearch'), 'password', '密码(Password)', 'Password', NULL, 'PASSWORD', NULL, '1', '密码(Password)', 'Password', '', NULL, '', NULL, now(), now()),
-       ((select id from "linkis_ps_dm_datasource_type" where "name" = 'elasticsearch'), 'elasticUrls', 'ES连接URL(Elastic Url)', 'Elastic Url', NULL, 'TEXT', NULL, '1', 'ES连接URL(Elastic Url)', 'Elastic Url', '', NULL, '', NULL, now(), now());
+       ((select id from "linkis_ps_dm_datasource_type" where "name" = 'elasticsearch'), 'elasticUrls', 'ES连接URL(Elastic Url)', 'Elastic Url', NULL, 'TEXT', NULL, '1', 'ES连接URL(Elastic Url)', 'Elastic Url', '', NULL, '', NULL, now(), now()),
+       ((select id from "linkis_ps_dm_datasource_type" where "name" = 'elasticsearch'), 'sslFingerprint', 'SSL指纹(SSL Fingerprint)', 'SSL Fingerprint', NULL, 'TEXT', NULL, '0', 'SSL指纹认证,用于HTTPS连接(SSL Fingerprint for HTTPS connection)', 'SSL Fingerprint for HTTPS connection', '^[a-fA-F0-9]{64}$', NULL, '', NULL, now(), now());
 
 -- https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-jdbc-url-format.html
 INSERT INTO "linkis_ps_dm_datasource_type_key"

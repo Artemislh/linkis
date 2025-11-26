@@ -29,4 +29,7 @@ public class ElasticParamsMapper {
 
   public static final CommonVars<String> PARAM_ES_PASSWORD =
       CommonVars.apply("wds.linkis.server.mdm.service.es.password", "password");
+
+  public static final CommonVars<String> PARAM_ES_FINGERPRINT =
+      CommonVars.apply("wds.linkis.server.mdm.service.es.fingerprint", "sslFingerprint");
 }

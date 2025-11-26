@@ -124,7 +124,8 @@ public class SqlConnection extends AbstractSqlConnection {
     return columns;
   }
 
-  private List<String> getPrimaryKeys(String schema, String table) throws SQLException {
+  @Override
+  public List<String> getPrimaryKeys(String schema, String table) throws SQLException {
     ResultSet rs = null;
     List<String> primaryKeys = new ArrayList<>();
     DatabaseMetaData dbMeta = conn.getMetaData();
